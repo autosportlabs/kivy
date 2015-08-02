@@ -275,7 +275,7 @@ class VKeyboard(Scatter):
     '''Filename of the key background image for use when no touches are active
     on the widget and vkeyboard is disabled.
 
-    ..versionadded:: 1.8.0
+    .. versionadded:: 1.8.0
 
     :attr:`key_disabled_background_normal` a
     :class:`~kivy.properties.StringProperty` and defaults to
@@ -332,19 +332,20 @@ class VKeyboard(Scatter):
         kwargs.setdefault('scale_max', 1.6)
         kwargs.setdefault('size', (700, 200))
         kwargs.setdefault('docked', False)
-        self._trigger_update_layout_mode = Clock.create_trigger(
+        layout_mode = self._trigger_update_layout_mode = Clock.create_trigger(
             self._update_layout_mode)
-        self._trigger_load_layouts = Clock.create_trigger(
+        layouts = self._trigger_load_layouts = Clock.create_trigger(
             self._load_layouts)
-        self._trigger_load_layout = Clock.create_trigger(
+        layout = self._trigger_load_layout = Clock.create_trigger(
             self._load_layout)
-        self.bind(
-            docked=self.setup_mode,
-            have_shift=self._trigger_update_layout_mode,
-            have_capslock=self._trigger_update_layout_mode,
-            have_special=self._trigger_update_layout_mode,
-            layout_path=self._trigger_load_layouts,
-            layout=self._trigger_load_layout)
+        fbind = self.fbind
+
+        fbind('docked', self.setup_mode)
+        fbind('have_shift', layout_mode)
+        fbind('have_capslock', layout_mode)
+        fbind('have_special', layout_mode)
+        fbind('layout_path', layouts)
+        fbind('layout', layout)
         super(VKeyboard, self).__init__(**kwargs)
 
         # load all the layouts found in the layout_path directory

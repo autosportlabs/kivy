@@ -30,12 +30,14 @@ _kivy_modules = [
 
     # sdl2
 
+    # uncomment this if you need to package pygame.
     # pygame
-    'pygame.event',
-    'pygame.video',
-    'pygame.image',
-    'pygame.display',
-    'pygame',
+    #'pygame.event',
+    #'pygame.video',
+    #'pygame.image',
+    #'pygame.display',
+    #'pygame',
+    'xml.etree.cElementTree',
 
     # external modules
     'kivy.cache',
@@ -78,6 +80,7 @@ _kivy_modules = [
     'kivy.graphics.vbo',
     'kivy.graphics.vertex',
     'kivy.graphics.vertex_instructions',
+    'kivy.graphics.tesselator',
     'kivy.properties',
 
     # core
