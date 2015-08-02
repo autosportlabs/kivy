@@ -23,15 +23,16 @@ class MyPaintApp(App):
 
     def build(self):
         parent = Widget()
-        self.painter = MyPaintWidget()
+        painter = MyPaintWidget()
         clearbtn = Button(text='Clear')
-        clearbtn.bind(on_release=self.clear_canvas)
-        parent.add_widget(self.painter)
+        parent.add_widget(painter)
         parent.add_widget(clearbtn)
-        return parent
 
-    def clear_canvas(self, obj):
-        self.painter.canvas.clear()
+        def clear_canvas(obj):
+            painter.canvas.clear()
+        clearbtn.bind(on_release=clear_canvas)
+
+        return parent
 
 
 if __name__ == '__main__':

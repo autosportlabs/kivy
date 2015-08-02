@@ -27,6 +27,7 @@ editor.kv
     :literal:
 
 '''
+from kivy.uix.screenmanager import ScreenManager, Screen
 
 __all__ = ('FileChooserListView', 'FileChooserIconView',
            'FileChooserListLayout', 'FileChooserIconLayout',
@@ -43,8 +44,6 @@ from kivy.lang import Builder
 from kivy.logger import Logger
 from kivy.utils import platform as core_platform
 from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.relativelayout import RelativeLayout
-from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.properties import (
     StringProperty, ListProperty, BooleanProperty, ObjectProperty,
     NumericProperty, OptionProperty, AliasProperty)
@@ -226,7 +225,7 @@ class FileChooserListLayout(FileChooserLayout):
 
     def __init__(self, **kwargs):
         super(FileChooserListLayout, self).__init__(**kwargs)
-        self.fbind('on_entries_cleared', self.scroll_to_top)
+        self.bind(on_entries_cleared=self.scroll_to_top)
 
     def scroll_to_top(self, *args):
         self.ids.scrollview.scroll_y = 1.0
@@ -243,13 +242,13 @@ class FileChooserIconLayout(FileChooserLayout):
 
     def __init__(self, **kwargs):
         super(FileChooserIconLayout, self).__init__(**kwargs)
-        self.fbind('on_entries_cleared', self.scroll_to_top)
+        self.bind(on_entries_cleared=self.scroll_to_top)
 
     def scroll_to_top(self, *args):
         self.ids.scrollview.scroll_y = 1.0
 
 
-class FileChooserController(RelativeLayout):
+class FileChooserController(FloatLayout):
     '''Base for implementing a FileChooser. Don't use this class directly, but
     prefer using an implementation such as the :class:`FileChooser`,
     :class:`FileChooserListView` or :class:`FileChooserIconView`.
@@ -456,16 +455,14 @@ class FileChooserController(RelativeLayout):
         super(FileChooserController, self).__init__(**kwargs)
 
         self._items = []
-        fbind = self.fbind
-        fbind('selection', self._update_item_selection)
+        self.bind(selection=self._update_item_selection)
 
         self._previous_path = [self.path]
-        fbind('path', self._save_previous_path)
-        update = self._trigger_update
-        fbind('path', update)
-        fbind('filters', update)
-        fbind('rootpath', update)
-        update()
+        self.bind(path=self._save_previous_path)
+        self.bind(path=self._trigger_update,
+                  filters=self._trigger_update,
+                  rootpath=self._trigger_update)
+        self._trigger_update()
 
     def on_touch_down(self, touch):
         # don't respond to touchs outside self
@@ -478,7 +475,7 @@ class FileChooserController(RelativeLayout):
     def on_touch_up(self, touch):
         # don't respond to touchs outside self
         if not self.collide_point(*touch.pos):
-            return
+            return True
         if self.disabled:
             return True
         return super(FileChooserController, self).on_touch_up(touch)
@@ -876,7 +873,7 @@ class FileChooser(FileChooserController):
 
         self.trigger_update_view = Clock.create_trigger(self.update_view)
 
-        self.fbind('view_mode', self.trigger_update_view)
+        self.bind(view_mode=self.trigger_update_view)
 
     def add_widget(self, widget, **kwargs):
         if widget is self._progress:
@@ -961,6 +958,7 @@ class FileChooser(FileChooserController):
 
 if __name__ == '__main__':
     from kivy.app import App
+    from kivy.lang import Builder
     from pprint import pprint
     import textwrap
     import sys

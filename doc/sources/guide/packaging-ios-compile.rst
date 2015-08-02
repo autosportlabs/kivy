@@ -8,7 +8,7 @@ Compiling for IOS
 Creating your distribution
 --------------------------
 
-Kivy uses a shell script to build your distribution and package all its
+Kivy uses a shell script to build your distribution and package all it's
 contents such that it can be used by XCode to compile your final iOS program
 (an *.ipa* file).
 

@@ -8,18 +8,13 @@ import sys
 
 from copy import deepcopy
 import os
-from os.path import join, dirname, sep, exists, basename, isdir, abspath
-from os import walk, environ, makedirs, listdir
+from os.path import join, dirname, sep, exists, basename
+from os import walk, environ
+from distutils.core import setup
+from distutils.extension import Extension
 from distutils.version import LooseVersion
 from collections import OrderedDict
-from subprocess import check_output
 from time import sleep
-
-if environ.get('KIVY_USE_SETUPTOOLS'):
-    from setuptools import setup, Extension
-else:
-    from distutils.core import setup
-    from distutils.extension import Extension
 
 
 if sys.version > '3':
@@ -36,9 +31,13 @@ if PY3:  # fix error with py3's LooseVersion comparisons
 
 MIN_CYTHON_STRING = '0.20'
 MIN_CYTHON_VERSION = LooseVersion(MIN_CYTHON_STRING)
-MAX_CYTHON_STRING = '0.22'
+MAX_CYTHON_STRING = '0.21.2'
 MAX_CYTHON_VERSION = LooseVersion(MAX_CYTHON_STRING)
-CYTHON_UNSUPPORTED = ()
+CYTHON_UNSUPPORTED = (
+    LooseVersion('0.22'),
+    LooseVersion('0.22.beta0'),
+    LooseVersion('0.22.alpha0'),
+)
 
 
 def getoutput(cmd):
@@ -90,16 +89,12 @@ if kivy_ios_root is not None:
     platform = 'ios'
 if exists('/opt/vc/include/bcm_host.h'):
     platform = 'rpi'
-if exists('/usr/lib/arm-linux-gnueabihf/libMali.so'):
-    platform = 'mali'
 
 # -----------------------------------------------------------------------------
 # Detect options
 #
 c_options = OrderedDict()
 c_options['use_rpi'] = platform == 'rpi'
-c_options['use_mali'] = platform == 'mali'
-c_options['use_egl'] = False
 c_options['use_opengl_es2'] = None
 c_options['use_opengl_debug'] = False
 c_options['use_glew'] = False
@@ -110,7 +105,6 @@ c_options['use_x11'] = False
 c_options['use_gstreamer'] = None
 c_options['use_avfoundation'] = platform == 'darwin'
 c_options['use_osx_frameworks'] = platform == 'darwin'
-c_options['debug_gl'] = False
 
 # now check if environ is changing the default values
 for key in list(c_options.keys()):
@@ -211,7 +205,7 @@ class KivyBuildExt(build_ext):
         retval = build_ext.finalize_options(self)
         global build_path
         if (self.build_lib is not None and exists(self.build_lib) and
-                not self.inplace):
+            not self.inplace):
             build_path = self.build_lib
         return retval
 
@@ -250,8 +244,8 @@ class KivyBuildExt(build_ext):
         config_pxi += 'DEF DEBUG = {0}\n'.format(debug)
         config_py += 'DEBUG = {0}\n'.format(debug)
         for fn, content in (
-                (config_h_fn, config_h), (config_pxi_fn, config_pxi),
-                (config_py_fn, config_py)):
+            (config_h_fn, config_h), (config_pxi_fn, config_pxi),
+            (config_py_fn, config_py)):
             build_fn = expand(build_path, *fn)
             if self.update_if_changed(build_fn, content):
                 print('Updated {}'.format(build_fn))
@@ -304,7 +298,7 @@ except ImportError:
     print('User distribution detected, avoid portable command.')
 
 # Detect which opengl version headers to use
-if platform in ('android', 'darwin', 'ios', 'rpi', 'mali'):
+if platform in ('android', 'darwin', 'ios', 'rpi'):
     c_options['use_opengl_es2'] = True
 elif platform == 'win32':
     print('Windows platform detected, force GLEW usage.')
@@ -320,8 +314,7 @@ else:
             c_options['use_opengl_es2'] = False
         else:
             # auto detection of GLES headers
-            default_header_dirs = ['/usr/include', join(
-                environ.get('LOCALBASE', '/usr/local'), 'include')]
+            default_header_dirs = ['/usr/include', '/usr/local/include']
             c_options['use_opengl_es2'] = False
             for hdir in default_header_dirs:
                 filename = join(hdir, 'GLES2', 'gl2.h')
@@ -333,8 +326,7 @@ else:
             if not c_options['use_opengl_es2']:
                 print('NOTE: Not found GLES 2.0 headers at: {}'.format(
                     default_header_dirs))
-                print(
-                    '      Please contact us if your distribution '
+                print('      Please contact us if your distribution '
                     'uses an alternative path for the headers.')
 
 print('Using this graphics system: {}'.format(
@@ -469,11 +461,6 @@ def determine_base_flags():
         flags['include_dirs'] += [sysroot]
         flags['extra_compile_args'] += ['-isysroot', sysroot]
         flags['extra_link_args'] += ['-isysroot', sysroot]
-    elif platform.startswith('freebsd'):
-        flags['include_dirs'] += [join(
-            environ.get('LOCALBASE', '/usr/local'), 'include')]
-        flags['extra_link_args'] += ['-L', join(
-            environ.get('LOCALBASE', '/usr/local'), 'lib')]
     elif platform == 'darwin':
         v = os.uname()
         if v[2] >= '13.0.0':
@@ -484,8 +471,7 @@ def determine_base_flags():
             sdk_mac_ver = '.'.join(_platform.mac_ver()[0].split('.')[:2])
             print('Xcode detected at {}, and using MacOSX{} sdk'.format(
                     xcode_dev, sdk_mac_ver))
-            sysroot = join(
-                    xcode_dev.decode('utf-8'),
+            sysroot = join(xcode_dev.decode('utf-8'),
                     'Platforms/MacOSX.platform/Developer/SDKs',
                     'MacOSX{}.sdk'.format(sdk_mac_ver),
                     'System/Library/Frameworks')
@@ -508,6 +494,8 @@ def determine_gl_flags():
         flags['extra_link_args'] = ['-framework', 'OpenGL', '-arch', osx_arch]
         flags['extra_compile_args'] = ['-arch', osx_arch]
     elif platform.startswith('freebsd'):
+        flags['include_dirs'] = ['/usr/local/include']
+        flags['extra_link_args'] = ['-L', '/usr/local/lib']
         flags['libraries'] = ['GL']
     elif platform.startswith('openbsd'):
         flags['include_dirs'] = ['/usr/X11R6/include']
@@ -518,18 +506,11 @@ def determine_gl_flags():
         flags['extra_link_args'] = ['-L', join(ndkplatform, 'usr', 'lib')]
         flags['libraries'] = ['GLESv2']
     elif platform == 'rpi':
-        flags['include_dirs'] = [
-            '/opt/vc/include',
+        flags['include_dirs'] = ['/opt/vc/include',
             '/opt/vc/include/interface/vcos/pthreads',
             '/opt/vc/include/interface/vmcs_host/linux']
         flags['library_dirs'] = ['/opt/vc/lib']
         flags['libraries'] = ['bcm_host', 'EGL', 'GLESv2']
-    elif platform == 'mali':
-        flags['include_dirs'] = ['/usr/include/']
-        flags['library_dirs'] = ['/usr/lib/arm-linux-gnueabihf']
-        flags['libraries'] = ['GLESv2']
-        c_options['use_x11'] = True
-        c_options['use_egl'] = True
     else:
         flags['libraries'] = ['GL']
     if c_options['use_glew']:
@@ -621,8 +602,7 @@ graphics_dependencies = {
     'instructions.pyx': [
         'config.pxi', 'opcodes.pxi', 'c_opengl.pxd', 'c_opengl_debug.pxd',
         'context.pxd', 'common.pxi', 'vertex.pxd', 'transformation.pxd'],
-    'opengl.pyx': [
-        'config.pxi', 'common.pxi', 'c_opengl.pxd', 'gl_redirect.h'],
+    'opengl.pyx': ['config.pxi', 'common.pxi', 'c_opengl.pxd', 'gl_redirect.h'],
     'opengl_utils.pyx': ['opengl_utils_def.pxi', 'c_opengl.pxd'],
     'shader.pxd': ['c_opengl.pxd', 'transformation.pxd', 'vertex.pxd'],
     'shader.pyx': [
@@ -630,8 +610,6 @@ graphics_dependencies = {
         'vertex.pxd', 'transformation.pxd', 'context.pxd'],
     'stencil_instructions.pxd': ['instructions.pxd'],
     'stencil_instructions.pyx': [
-        'config.pxi', 'opcodes.pxi', 'c_opengl.pxd', 'c_opengl_debug.pxd'],
-    'scissor_instructions.pyx': [
         'config.pxi', 'opcodes.pxi', 'c_opengl.pxd', 'c_opengl_debug.pxd'],
     'svg.pyx': ['config.pxi', 'common.pxi', 'texture.pxd', 'instructions.pxd',
                 'vertex_instructions.pxd', 'tesselator.pxd'],
@@ -647,8 +625,8 @@ graphics_dependencies = {
     'vertex.pxd': ['c_opengl.pxd'],
     'vertex.pyx': ['config.pxi', 'common.pxi'],
     'vertex_instructions.pyx': [
-        'config.pxi', 'common.pxi', 'vbo.pxd', 'vertex.pxd',
-        'instructions.pxd', 'vertex_instructions.pxd',
+        'config.pxi', 'common.pxi', 'vbo.pxd', 'vertex.pxd', 'instructions.pxd',
+        'vertex_instructions.pxd',
         'c_opengl.pxd', 'c_opengl_debug.pxd', 'texture.pxd',
         'vertex_instructions_line.pxi'],
     'vertex_instructions_line.pxi': ['stencil_instructions.pxd']}
@@ -669,7 +647,6 @@ sources = {
     'graphics/opengl_utils.pyx': merge(base_flags, gl_flags),
     'graphics/shader.pyx': merge(base_flags, gl_flags),
     'graphics/stencil_instructions.pyx': merge(base_flags, gl_flags),
-    'graphics/scissor_instructions.pyx': merge(base_flags, gl_flags),
     'graphics/texture.pyx': merge(base_flags, gl_flags),
     'graphics/transformation.pyx': merge(base_flags, gl_flags),
     'graphics/vbo.pyx': merge(base_flags, gl_flags),
@@ -740,11 +717,6 @@ if c_options['use_rpi']:
             base_flags, gl_flags)
 
 if c_options['use_x11']:
-    libs = ['Xrender', 'X11']
-    if c_options['use_egl']:
-        libs += ['EGL']
-    else:
-        libs += ['GL']
     sources['core/window/window_x11.pyx'] = merge(
         base_flags, gl_flags, {
             # FIXME add an option to depend on them but not compile them
@@ -754,7 +726,7 @@ if c_options['use_x11']:
             #'depends': [
             #    'core/window/window_x11_keytab.c',
             #    'core/window/window_x11_core.c'],
-            'libraries': libs})
+            'libraries': ['Xrender', 'X11']})
 
 if c_options['use_gstreamer']:
     sources['lib/gstplayer/_gstplayer.pyx'] = merge(
@@ -804,8 +776,8 @@ def get_extensions_from_sources(sources):
         for key, value in flags.items():
             if len(value):
                 flags_clean[key] = value
-        ext_modules.append(CythonExtension(
-            module_name, [pyx] + f_depends + c_depends, **flags_clean))
+        ext_modules.append(CythonExtension(module_name,
+            [pyx] + f_depends + c_depends, **flags_clean))
     return ext_modules
 
 ext_modules = get_extensions_from_sources(sources)
@@ -815,7 +787,7 @@ ext_modules = get_extensions_from_sources(sources)
 data_file_prefix = 'share/kivy-'
 examples = {}
 examples_allowed_ext = ('readme', 'py', 'wav', 'png', 'jpg', 'svg', 'json',
-                        'avi', 'gif', 'txt', 'ttf', 'obj', 'mtl', 'kv', 'mpg')
+                        'avi', 'gif', 'txt', 'ttf', 'obj', 'mtl', 'kv')
 for root, subFolders, files in walk('examples'):
     for fn in files:
         ext = fn.split('.')[-1].lower()
@@ -823,17 +795,9 @@ for root, subFolders, files in walk('examples'):
             continue
         filename = join(root, fn)
         directory = '%s%s' % (data_file_prefix, dirname(filename))
-        if directory not in examples:
+        if not directory in examples:
             examples[directory] = []
         examples[directory].append(filename)
-
-binary_deps = []
-binary_deps_path = join(src_path, 'kivy', 'binary_deps')
-if isdir(binary_deps_path):
-    for root, dirnames, filenames in walk(binary_deps_path):
-        for fname in filenames:
-            binary_deps.append(
-                join(root.replace(binary_deps_path, 'binary_deps'), fname))
 
 # -----------------------------------------------------------------------------
 # setup !
@@ -876,7 +840,6 @@ setup(
         'kivy.modules',
         'kivy.network',
         'kivy.storage',
-        'kivy.tests',
         'kivy.tools',
         'kivy.tools.packaging',
         'kivy.tools.packaging.pyinstaller_hooks',
@@ -892,7 +855,6 @@ setup(
         'core/text/*.pxi',
         'graphics/*.pxd',
         'graphics/*.pxi',
-        'graphics/*.h',
         'lib/vidcore_lite/*.pxd',
         'lib/vidcore_lite/*.pxi',
         'data/*.kv',
@@ -907,11 +869,6 @@ setup(
         'data/glsl/*.png',
         'data/glsl/*.vs',
         'data/glsl/*.fs',
-        'tests/*.zip',
-        'tests/*.kv',
-        'tests/*.png',
-        'tests/*.ttf',
-        'tests/*.ogg',
         'tools/highlight/*.vim',
         'tools/highlight/*.el',
         'tools/packaging/README.txt',
@@ -920,8 +877,7 @@ setup(
         'tools/packaging/win32/README.txt',
         'tools/packaging/osx/Info.plist',
         'tools/packaging/osx/InfoPlist.strings',
-        'tools/gles_compat/*.h',
-        'tools/packaging/osx/kivy.sh'] + binary_deps},
+        'tools/packaging/osx/kivy.sh']},
     data_files=list(examples.items()),
     classifiers=[
         'Development Status :: 5 - Production/Stable',

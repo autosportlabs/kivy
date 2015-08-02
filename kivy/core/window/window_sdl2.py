@@ -58,22 +58,6 @@ SDLK_SUPER = 1073742051
 SDLK_CAPS = 1073741881
 SDLK_INSERT = 1073741897
 SDLK_KEYPADNUM = 1073741907
-SDLK_KP_DEVIDE = 1073741908
-SDLK_KP_MULTIPLY = 1073741909
-SDLK_KP_MINUS = 1073741910
-SDLK_KP_PLUS = 1073741911
-SDLK_KP_ENTER = 1073741912
-SDLK_KP_1 = 1073741913
-SDLK_KP_2 = 1073741914
-SDLK_KP_3 = 1073741915
-SDLK_KP_4 = 1073741916
-SDLK_KP_5 = 1073741917
-SDLK_KP_6 = 1073741918
-SDLK_KP_7 = 1073741919
-SDLK_KP_8 = 1073741920
-SDLK_KP_9 = 1073741921
-SDLK_KP_0 = 1073741922
-SDLK_KP_DOT = 1073741923
 SDLK_F1 = 1073741882
 SDLK_F2 = 1073741883
 SDLK_F3 = 1073741884
@@ -133,7 +117,6 @@ class SDL2MotionEventProvider(MotionEventProvider):
 class WindowSDL(WindowBase):
 
     def __init__(self, **kwargs):
-        self._pause_loop = False
         self._win = _WindowSDL2Storage()
         super(WindowSDL, self).__init__()
         self._mouse_x = self._mouse_y = -1
@@ -157,55 +140,8 @@ class WindowSDL(WindowBase):
                     281: 'pgdown'}
         self._mouse_buttons_down = set()
 
-        self.bind(minimum_width=self._set_minimum_size,
-                  minimum_height=self._set_minimum_size)
-
-    def _set_minimum_size(self, *args):
-        minimum_width = self.minimum_width
-        minimum_height = self.minimum_height
-        if minimum_width and minimum_height:
-            self._win.set_minimum_size(minimum_width, minimum_height)
-        elif minimum_width or minimum_height:
-            Logger.warning(
-                'Both Window.minimum_width and Window.minimum_height must be '
-                'bigger than 0 for the size restriction to take effect.')
-
-    def _event_filter(self, action):
-        from kivy.app import App
-        if action == 'app_terminating':
-            EventLoop.quit = True
-            self.close()
-
-        elif action == 'app_lowmemory':
-            self.dispatch('on_memorywarning')
-
-        elif action == 'app_willenterbackground':
-            from kivy.base import stopTouchApp
-            app = App.get_running_app()
-            if not app:
-                Logger.info('WindowSDL: No running App found, exit.')
-                stopTouchApp()
-                return 0
-
-            if not app.dispatch('on_pause'):
-                Logger.info('WindowSDL: App doesn\'t support pause mode, stop.')
-                stopTouchApp()
-                return 0
-
-            self._pause_loop = True
-
-        elif action == 'app_didenterforeground':
-            # on iOS, the did enter foreground is launched at the start
-            # of the application. in our case, we want it only when the app
-            # is resumed
-            if self._pause_loop:
-                self._pause_loop = False
-                app = App.get_running_app()
-                app.dispatch('on_resume')
-
-        return 0
-
     def create_window(self, *largs):
+
         if self._fake_fullscreen:
             if not self.borderless:
                 self.fullscreen = self._fake_fullscreen = False
@@ -215,8 +151,8 @@ class WindowSDL(WindowBase):
         if self.fullscreen == 'fake':
             self.borderless = self._fake_fullscreen = True
             Logger.warning("The 'fake' fullscreen option has been "
-                           "deprecated, use Window.borderless or the "
-                           "borderless Config option instead.")
+                            "deprecated, use Window.borderless or the "
+                            "borderless Config option instead.")
 
         if not self.initialized:
 
@@ -224,9 +160,6 @@ class WindowSDL(WindowBase):
                 pos = None, None
             elif self.position == 'custom':
                 pos = self.left, self.top
-
-            # ensure we have an event filter
-            self._win.set_event_filter(self._event_filter)
 
             # setup !
             w, h = self.system_size
@@ -246,7 +179,6 @@ class WindowSDL(WindowBase):
             # never stay with a None pos, application using w.center
             # will be fired.
             self._pos = (0, 0)
-            self._set_minimum_size()
         else:
             w, h = self.system_size
             self._win.resize_window(w, h)
@@ -254,9 +186,6 @@ class WindowSDL(WindowBase):
             self._win.set_fullscreen_mode(self.fullscreen)
 
         super(WindowSDL, self).create_window()
-        # set mouse visibility
-        self._win.show_cursor(
-            Config.getboolean('graphics', 'show_cursor'))
 
         if self.initialized:
             return
@@ -347,23 +276,18 @@ class WindowSDL(WindowBase):
         super(WindowSDL, self).flip()
 
     def _fix_mouse_pos(self, x, y):
+        density = self._density
         y -= 1
-        self.mouse_pos = x, self.system_size[1] - y
+        if self._is_desktop and self.size[0] != self._size[0]:
+            x, y = x * density, (y * density) - self.system_size[1]
+            #y = self.system_size[1] - y
+            self.mouse_pos = x, y
+        else:
+            self.mouse_pos = x, self.system_size[1] - y
         return x, y
 
     def _mainloop(self):
         EventLoop.idle()
-
-        # for android/iOS, we don't want to have any event nor executing our
-        # main loop while the pause is going on. This loop wait any event (not
-        # handled by the event filter), and remove them from the queue.
-        # Nothing happen during the pause on iOS, except gyroscope value sended
-        # over joystick. So it's safe.
-        while self._pause_loop:
-            self._win.wait_event()
-            if not self._pause_loop:
-                break
-            self._win.poll()
 
         while True:
             event = self._win.poll()
@@ -374,8 +298,6 @@ class WindowSDL(WindowBase):
 
             action, args = event[0], event[1:]
             if action == 'quit':
-                if self.dispatch('on_request_close'):
-                    continue
                 EventLoop.quit = True
                 self.close()
                 break
@@ -494,13 +416,7 @@ class WindowSDL(WindowBase):
                     SDLK_F2: 283, SDLK_F3: 284, SDLK_F4: 285, SDLK_F5: 286,
                     SDLK_F6: 287, SDLK_F7: 288, SDLK_F8: 289, SDLK_F9: 290,
                     SDLK_F10: 291, SDLK_F11: 292, SDLK_F12: 293, SDLK_F13: 294,
-                    SDLK_F14: 295, SDLK_F15: 296, SDLK_KEYPADNUM: 300,
-                    SDLK_KP_DEVIDE: 267, SDLK_KP_MULTIPLY: 268,
-                    SDLK_KP_MINUS: 269, SDLK_KP_PLUS: 270, SDLK_KP_ENTER: 271,
-                    SDLK_KP_DOT: 266, SDLK_KP_0: 256, SDLK_KP_1: 257,
-                    SDLK_KP_2: 258, SDLK_KP_3: 259, SDLK_KP_4: 260,
-                    SDLK_KP_5: 261, SDLK_KP_6: 262, SDLK_KP_7: 263,
-                    SDLK_KP_8: 264, SDLK_KP_9: 265}
+                    SDLK_F14: 295, SDLK_F15: 296, SDLK_KEYPADNUM: 300}
 
                 if platform == 'ios':
                     # XXX ios keyboard suck, when backspace is hit, the delete
@@ -545,6 +461,17 @@ class WindowSDL(WindowBase):
             elif action == 'textinput':
                 text = args[0]
                 self.dispatch('on_textinput', text)
+                # XXX on IOS, keydown/up don't send unicode anymore.
+                # With latest sdl, the text is sent over textinput
+                # Right now, redo keydown/up, but we need to seperate both call
+                # too. (and adapt on_key_* API.)
+                #self.dispatch()
+                #self.dispatch('on_key_down', key, None, args[0],
+                #              self.modifiers)
+                #self.dispatch('on_keyboard', None, None, args[0],
+                #              self.modifiers)
+                #self.dispatch('on_key_up', key, None, args[0],
+                #              self.modifiers)
 
             # unhandled event !
             else:
@@ -556,7 +483,7 @@ class WindowSDL(WindowBase):
         self.dispatch('on_resize', *self.size)
 
     def do_pause(self):
-        # should go to app pause mode (desktop style)
+        # should go to app pause mode.
         from kivy.app import App
         from kivy.base import stopTouchApp
         app = App.get_running_app()
@@ -582,8 +509,6 @@ class WindowSDL(WindowBase):
             if action == 'quit':
                 EventLoop.quit = True
                 self.close()
-                break
-            elif action == 'app_willenterforeground':
                 break
             elif action == 'windowrestored':
                 break
@@ -660,3 +585,4 @@ class WindowSDL(WindowBase):
             return False
         if not self._win.is_keyboard_shown():
             self._sdl_keyboard.release()
+

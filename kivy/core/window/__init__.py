@@ -19,7 +19,6 @@ from kivy.config import Config
 from kivy.logger import Logger
 from kivy.base import EventLoop, stopTouchApp
 from kivy.modules import Modules
-from kivy.metrics import dp
 from kivy.event import EventDispatcher
 from kivy.properties import ListProperty, ObjectProperty, AliasProperty, \
     NumericProperty, OptionProperty, StringProperty, BooleanProperty
@@ -55,7 +54,7 @@ class Keyboard(EventDispatcher):
 
     '''
 
-    # Keycodes mapping, between str <-> int. These keycodes are
+    # Keycodes mapping, between str <-> int. Theses keycode are
     # currently taken from pygame.key. But when a new provider will be
     # used, it must do the translation to these keycodes too.
     keycodes = {
@@ -211,10 +210,6 @@ class WindowBase(EventDispatcher):
             Width of the window.
         `height`: int
             Height of the window.
-        `minimum_width`: int
-            Minimum width of the window (only works for sdl2 window provider).
-        `minimum_height`: int
-            Minimum height of the window (only works for sdl2 window provider).
 
     :Events:
         `on_motion`: etype, motionevent
@@ -268,11 +263,6 @@ class WindowBase(EventDispatcher):
         `on_dropfile`: str
             Fired when a file is dropped on the application.
 
-        `on_memorywarning`:
-            Fired when the platform have memory issue (iOS / Android mostly)
-            You can listen to this one, and clean whatever you can.
-
-            .. versionadded:: 1.9.0
     '''
 
     __instance = None
@@ -337,24 +327,6 @@ class WindowBase(EventDispatcher):
             return True
         else:
             return False
-
-    minimum_width = NumericProperty(0)
-    '''The minimum width to restrict the window to.
-
-    .. versionadded:: 1.9.1
-
-    :attr:`minimum_width` is a :class:`~kivy.properties.NumericProperty`,
-    defaults to 0.
-    '''
-
-    minimum_height = NumericProperty(0)
-    '''The minimum height to restrict the window to.
-
-    .. versionadded:: 1.9.1
-
-    :attr:`minimum_height` is a :class:`~kivy.properties.NumericProperty`,
-    defaults to 0.
-    '''
 
     size = AliasProperty(_get_size, _set_size, bind=('_size', ))
     '''Get the rotated size of the window. If :attr:`rotation` is set, then the
@@ -454,8 +426,7 @@ class WindowBase(EventDispatcher):
     degrees.
     '''
 
-    softinput_mode = OptionProperty('', options=(
-        '', 'below_target', 'pan', 'scale', 'resize'))
+    softinput_mode = OptionProperty('', options=('', 'pan', 'scale', 'resize'))
     '''This specifies the behavior of window contents on display of soft
     keyboard on mobile platform. Can be one of '', 'pan', 'scale', 'resize'.
 
@@ -468,12 +439,7 @@ class WindowBase(EventDispatcher):
     when 'resize' The window is resized and the contents scaled to fit the
     remaining space.
 
-    When 'below_target', the window pans so that the current target TextInput
-    widget requesting the keyboard is presented just above the soft Keyboard.
-
-    .. versionchanged::1.9.1
-
-    .. versionadded:: 1.9.0
+    ..versionadded::1.9.0
 
     :attr:`softinput_mode` is a :class:`OptionProperty` defaults to None.
 
@@ -483,7 +449,6 @@ class WindowBase(EventDispatcher):
 
     def _upd_kbd_height(self, *kargs):
         self._keyboard_changed = not self._keyboard_changed
-        self.update_viewport()
 
     def _get_ios_kheight(self):
         return 0
@@ -502,15 +467,13 @@ class WindowBase(EventDispatcher):
         return 0
 
     keyboard_height = AliasProperty(_get_kheight, None,
-                                    bind=('_keyboard_changed',),
-                                    cache=True)
+                                    bind=('_keyboard_changed',))
     '''Rerturns the height of the softkeyboard/IME on mobile platforms.
     Will return 0 if not on mobile platform or if IME is not active.
 
-    .. versionadded:: 1.9.0
+    ..versionadded:: 1.9.0
 
-    :attr:`keyboard_height` is a read-only :class:`AliasProperty`,
-    defaults to 0.
+    :attr:`keyboard_height` is a read-only :class:`AliasProperty` defaults to 0.
     '''
 
     def _set_system_size(self, size):
@@ -571,7 +534,7 @@ class WindowBase(EventDispatcher):
         'on_mouse_down', 'on_mouse_move', 'on_mouse_up', 'on_keyboard',
         'on_key_down', 'on_key_up', 'on_textinput', 'on_dropfile',
         'on_request_close', 'on_joy_axis', 'on_joy_hat', 'on_joy_ball',
-        'on_joy_button_down', 'on_joy_button_up', 'on_memorywarning')
+        'on_joy_button_down', "on_joy_button_up")
 
     def __new__(cls, **kwargs):
         if cls.__instance is None:
@@ -611,12 +574,6 @@ class WindowBase(EventDispatcher):
             kwargs['width'] = Config.getint('graphics', 'width')
         if 'height' not in kwargs:
             kwargs['height'] = Config.getint('graphics', 'height')
-        if 'minimum_width' not in kwargs:
-            kwargs['minimum_width'] = Config.getint('graphics',
-                                                    'minimum_width')
-        if 'minimum_height' not in kwargs:
-            kwargs['minimum_height'] = Config.getint('graphics',
-                                                     'minimum_height')
         if 'rotation' not in kwargs:
             kwargs['rotation'] = Config.getint('graphics', 'rotation')
         if 'position' not in kwargs:
@@ -700,8 +657,7 @@ class WindowBase(EventDispatcher):
         .. versionadded:: 1.9.0
 
         .. note::
-            This feature requires a SDL2 window provider and is currently only
-            supported on desktop platforms.
+            This feature works with the SDL2 window provider only.
 
         .. warning::
             This code is still experimental, and its API may be subject to
@@ -717,8 +673,7 @@ class WindowBase(EventDispatcher):
         .. versionadded:: 1.9.0
 
         .. note::
-            This feature requires a SDL2 window provider and is currently only
-            supported on desktop platforms.
+            This feature works with the SDL2 window provider only.
 
         .. warning::
             This code is still experimental, and its API may be subject to
@@ -734,8 +689,7 @@ class WindowBase(EventDispatcher):
         .. versionadded:: 1.9.0
 
         .. note::
-            This feature requires a SDL2 window provider and is currently only
-            supported on desktop platforms.
+            This feature works with the SDL2 window provider only.
 
         .. warning::
             This code is still experimental, and its API may be subject to
@@ -751,8 +705,7 @@ class WindowBase(EventDispatcher):
         .. versionadded:: 1.9.0
 
         .. note::
-            This feature requires a SDL2 window provider and is currently only
-            supported on desktop platforms.
+            This feature works with the SDL2 window provider only.
 
         .. warning::
             This code is still experimental, and its API may be subject to
@@ -768,8 +721,7 @@ class WindowBase(EventDispatcher):
         .. versionadded:: 1.9.0
 
         .. note::
-            This feature requires a SDL2 window provider and is currently only
-            supported on desktop platforms.
+            This feature works with the SDL2 window provider only.
 
         .. warning::
             This code is still experimental, and its API may be subject to
@@ -943,7 +895,7 @@ class WindowBase(EventDispatcher):
         '''
         if me.is_touch:
             w, h = self.system_size
-            if platform == 'ios' or self._density != 1:
+            if platform == 'ios':
                 w, h = self.size
             me.scale_for_screen(w, h, rotation=self._rotation,
                                 smode=self.softinput_mode,
@@ -1006,8 +958,6 @@ class WindowBase(EventDispatcher):
             w, h = self.size
 
         smode = self.softinput_mode
-        target = self._system_keyboard.target
-        targettop = target.to_window(0, target.y)[1] if target else 0
         kheight = self.keyboard_height
 
         w2, h2 = w / 2., h / 2.
@@ -1015,10 +965,8 @@ class WindowBase(EventDispatcher):
 
         x, y = 0, 0
         _h = h
-        if smode == 'pan':
+        if smode:
             y = kheight
-        elif smode == 'below_target':
-            y = 0 if kheight < targettop else (kheight - targettop) + dp(9)
         if smode == 'scale':
             _h -= kheight
 
@@ -1156,7 +1104,7 @@ class WindowBase(EventDispatcher):
         '''Event called when keyboard is used.
 
         .. warning::
-            Some providers may omit `scancode`, `codepoint` and/or `modifier`.
+            Some providers may omit `scancode`, `codepoint` and/or `modifier`!
         '''
         if 'unicode' in kwargs:
             Logger.warning("The use of the unicode parameter is deprecated, "
@@ -1208,7 +1156,7 @@ class WindowBase(EventDispatcher):
         character or multiple ones, this event supports handling multiple
         characters.
 
-        .. versionadded:: 1.9.0
+        ..versionadded:: 1.9.0
         '''
         pass
 
@@ -1223,18 +1171,6 @@ class WindowBase(EventDispatcher):
             (ios, android etc.)
 
         .. versionadded:: 1.2.0
-        '''
-        pass
-
-    def on_memorywarning(self):
-        '''Event called when the platform have memory issue.
-        Your goal is to clear the cache in your app as much as you can,
-        release unused widget, etc.
-
-        Currently, this event is fired only from SDL2 provider, for
-        iOS and Android.
-
-        .. versionadded:: 1.9.0
         '''
         pass
 

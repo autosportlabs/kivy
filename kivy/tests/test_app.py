@@ -2,12 +2,10 @@ import unittest
 from kivy.app import App
 from kivy.clock import Clock
 import os.path
-from kivy import lang
 
 
 class AppTest(unittest.TestCase):
     def test_start_raw_app(self):
-        lang._delayed_start = None
         a = App()
         Clock.schedule_once(a.stop, .1)
         a.run()
@@ -16,7 +14,6 @@ class AppTest(unittest.TestCase):
         class TestKvApp(App):
             pass
 
-        lang._delayed_start = None
         a = TestKvApp()
         Clock.schedule_once(a.stop, .1)
         a.run()

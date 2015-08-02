@@ -68,9 +68,9 @@ class ProxyImage(Image):
     __events__ = ('on_load', )
 
     def __init__(self, arg, **kwargs):
-        loaded = kwargs.pop('loaded', False)
+        kwargs.setdefault('loaded', False)
         super(ProxyImage, self).__init__(arg, **kwargs)
-        self.loaded = loaded
+        self.loaded = kwargs.get('loaded')
 
     def on_load(self):
         pass

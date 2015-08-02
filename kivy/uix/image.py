@@ -73,9 +73,7 @@ class Image(Widget):
     '''
 
     texture = ObjectProperty(None, allownone=True)
-    '''Texture object of the image. The texture represents the original, loaded
-    image texture. It is streched and positioned during rendering according to
-    the :attr:`allow_stretch` and :attr:`keep_ratio` properties.
+    '''Texture object of the image.
 
     Depending of the texture creation, the value will be a
     :class:`~kivy.graphics.texture.Texture` or a
@@ -86,8 +84,7 @@ class Image(Widget):
     '''
 
     texture_size = ListProperty([0, 0])
-    '''Texture size of the image. This represents the original, loaded image
-    texture size.
+    '''Texture size of the image.
 
     .. warning::
 
@@ -235,12 +232,10 @@ class Image(Widget):
         self._coreimage = None
         self._loops = 0
         super(Image, self).__init__(**kwargs)
-        fbind = self.fbind
-        update = self.texture_update
-        fbind('source', update)
-        fbind('mipmap', update)
+        self.bind(source=self.texture_update,
+                  mipmap=self.texture_update)
         if self.source:
-            update()
+            self.texture_update()
 
     def texture_update(self, *largs):
         if not self.source:
@@ -302,12 +297,7 @@ class Image(Widget):
             # image will be re-loaded from disk
 
         '''
-        try:
-            self._coreimage.remove_from_cache()
-
-        except AttributeError:
-            pass
-
+        self._coreimage.remove_from_cache()
         olsource = self.source
         self.source = ''
         self.source = olsource
@@ -336,7 +326,7 @@ class AsyncImage(Image):
         global Loader
         if not Loader:
             from kivy.loader import Loader
-        self.fbind('source', self._load_source)
+        self.bind(source=self._load_source)
         if self.source:
             self._load_source()
 

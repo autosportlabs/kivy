@@ -140,7 +140,7 @@ import json
 from os.path import basename, dirname, join, splitext
 from kivy.event import EventDispatcher
 from kivy.logger import Logger
-from kivy.properties import AliasProperty, DictProperty, ListProperty
+from kivy.properties import AliasProperty, DictProperty
 import os
 
 
@@ -150,15 +150,6 @@ CoreImage = None
 
 class Atlas(EventDispatcher):
     '''Manage texture atlas. See module documentation for more information.
-    '''
-
-    original_textures = ListProperty([])
-    '''List of original atlas textures (which contain the :attr:`textures`).
-
-    :attr:`original_textures` is a :class:`~kivy.properties.ListProperty` and
-    defaults to [].
-
-    .. versionadded:: 1.9.1
     '''
 
     textures = DictProperty({})
@@ -210,14 +201,12 @@ class Atlas(EventDispatcher):
 
             # load the image
             ci = CoreImage(subfilename)
-            atlas_texture = ci.texture
-            self.original_textures.append(atlas_texture)
 
             # for all the uid, load the image, get the region, and put
             # it in our dict.
             for meta_id, meta_coords in ids.items():
                 x, y, w, h = meta_coords
-                textures[meta_id] = atlas_texture.get_region(*meta_coords)
+                textures[meta_id] = ci.texture.get_region(*meta_coords)
 
         self.textures = textures
 
@@ -270,7 +259,7 @@ class Atlas(EventDispatcher):
             raise
 
         if isinstance(size, (tuple, list)):
-            size_w, size_h = list(map(int, size))
+            size_w, size_h = map(int, size)
         else:
             size_w = size_h = int(size)
 
@@ -431,7 +420,7 @@ if __name__ == '__main__':
     outname = argv[0]
     try:
         if 'x' in argv[1]:
-            size = list(map(int, argv[1].split('x', 1)))
+            size = map(int, argv[1].split('x', 1))
         else:
             size = int(argv[1])
     except ValueError:

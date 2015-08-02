@@ -35,7 +35,7 @@ class BaseClass(object):
     def is_event_type(self, key):
         return key.startswith('on_')
 
-    def fbind(self, name, func, *largs):
+    def fast_bind(self, name, func, *largs):
         self.binded_func[name] = partial(func, *largs)
         return True
 

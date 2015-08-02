@@ -4,55 +4,13 @@ Behaviors
 
 .. versionadded:: 1.8.0
 
-Behavior mixin classes
-----------------------
+This module implements behaviors that can be mixed with existing base widgets.
+For example, if you want to add a "button" capability to an `Image`, you could
+do::
 
-This module implements behaviors that can be
-`mixed in <https://en.wikipedia.org/wiki/Mixin>`_
-with existing base widgets. The idea behind these classes is to encapsulate
-properties and events associated with certain types of widgets.
-
-Isolating these properties and events in a mixin class allows you to define your
-own implementation for standard kivy widgets that can act as drop-in
-replacements. This means you can re-style and re-define widgets as desired
-without breaking compatibility: as long as they implement the behaviors
-correctly, they can simply replace the standard widgets.
-
-Adding behaviors
-----------------
-
-Say you want to add :class:`~kivy.uix.button.Button` capabilities to an
-:class:`~kivy.uix.image.Image`, you could do::
 
     class IconButton(ButtonBehavior, Image):
         pass
-
-This would give you an :class:`~kivy.uix.image.Image` with the events and
-properties inherited from :class:`ButtonBehavior`. For example, the *on_press*
-and *on_release* events would be fired when appropriate::
-
-    class IconButton(ButtonBehavior, Image):
-        def on_press(self):
-            print("on_press")
-
-Or in kv:
-
-.. code-block:: kv
-
-    IconButton:
-        on_press: print('on_press')
-
-Naturally, you could also bind to any property changes the behavior class
-offers:
-
-.. code-block:: python
-
-        def state_changed(*args):
-            print('state changed')
-
-        button = IconButton()
-        button.bind(state=state_changed)
-
 
 .. note::
 
@@ -95,9 +53,7 @@ if Config:
 
 
 class ButtonBehavior(object):
-    '''
-    This `mixin <https://en.wikipedia.org/wiki/Mixin>`_ class provides
-    :class:`~kivy.uix.button.Button` behavior.
+    '''Button behavior.
 
     :Events:
         `on_press`
@@ -108,12 +64,11 @@ class ButtonBehavior(object):
     '''
 
     state = OptionProperty('normal', options=('normal', 'down'))
-    '''The state of the button, must be one of 'normal' or 'down'.
+    '''State of the button, must be one of 'normal' or 'down'.
     The state is 'down' only when the button is currently touched/clicked,
-    otherwise its 'normal'.
+    otherwise 'normal'.
 
-    :attr:`state` is an :class:`~kivy.properties.OptionProperty` and defaults
-    to 'normal'.
+    :attr:`state` is an :class:`~kivy.properties.OptionProperty`.
     '''
 
     last_touch = ObjectProperty(None)
@@ -123,24 +78,24 @@ class ButtonBehavior(object):
 
     .. versionadded:: 1.8.0
 
-    :attr:`last_touch` is a :class:`~kivy.properties.ObjectProperty` and
-    defaults to `None`.
+    :attr:`last_touch` is a :class:`~kivy.properties.ObjectProperty`,
+    defaults to None.
     '''
 
     MIN_STATE_TIME = 0.035
     '''The minimum period of time which the widget must remain in the
     `'down'` state.
 
-    :attr:`MIN_STATE_TIME` is a float and defaults to 0.035.
+    :attr:`MIN_STATE_TIME` is a float.
     '''
 
     always_release = BooleanProperty(True)
-    '''This determines whether or not the widget fires an `on_release` event if
+    '''This determines if the widget fires a `on_release` event if
     the touch_up is outside the widget.
 
-    .. versionadded:: 1.9.0
+    ..versionadded:: 1.9.0
 
-    :attr:`always_release` is a :class:`~kivy.properties.BooleanProperty` and
+    :attr:`always_release` is a :class:`~kivy.properties.BooleanProperty`,
     defaults to `True`.
     '''
 
@@ -150,7 +105,7 @@ class ButtonBehavior(object):
         super(ButtonBehavior, self).__init__(**kwargs)
         self.__state_event = None
         self.__touch_time = None
-        self.fbind('state', self.cancel_event)
+        self.bind(state=self.cancel_event)
 
     def _do_press(self):
         self.state = 'down'
@@ -238,9 +193,8 @@ class ButtonBehavior(object):
 
 
 class ToggleButtonBehavior(ButtonBehavior):
-    '''This `mixin <https://en.wikipedia.org/wiki/Mixin>`_ class provides
-    :class:`~kivy.uix.togglebutton.ToggleButton` behavior. Please see
-    the :mod:`~kivy.uix.togglebutton` module documentation for more information.
+    '''ToggleButton behavior, see ToggleButton module documentation for more
+    information.
 
     .. versionadded:: 1.8.0
     '''
@@ -248,21 +202,20 @@ class ToggleButtonBehavior(ButtonBehavior):
     __groups = {}
 
     group = ObjectProperty(None, allownone=True)
-    '''Group of the button. If `None`, no group will be used (the button will be
+    '''Group of the button. If None, no group will be used (button is
     independent). If specified, :attr:`group` must be a hashable object, like
-    a string. Only one button in a group can be in a 'down' state.
+    a string. Only one button in a group can be in 'down' state.
 
-    :attr:`group` is a :class:`~kivy.properties.ObjectProperty` and defaults to
-    `None`.
+    :attr:`group` is a :class:`~kivy.properties.ObjectProperty`
     '''
 
     allow_no_selection = BooleanProperty(True)
-    '''This specifies whether the widgets in a group allow no selection i.e.
-    everything to be deselected.
+    '''This specifies whether the checkbox in group allows everything to
+    be deselected.
 
-    .. versionadded:: 1.9.0
+    ..versionadded::1.9.0
 
-    :attr:`allow_no_selection` is a :class:`BooleanProperty` and defaults to
+    :attr:`allow_no_selection` is a :class:`BooleanProperty` defaults to
     `True`
     '''
 
@@ -317,14 +270,12 @@ class ToggleButtonBehavior(ButtonBehavior):
 
     @staticmethod
     def get_widgets(groupname):
-        '''Return a list of the widgets contained in a specific group. If the
-        group doesn't exist, an empty list will be returned.
+        '''Return the widgets contained in a specific group. If the group
+        doesn't exist, an empty list will be returned.
 
-        .. note::
+        .. important::
 
-            Always release the result of this method! Holding a reference to
-            any of these widgets can prevent them from being garbage collected.
-            If in doubt, do::
+            Always release the result of this method! In doubt, do::
 
                 l = ToggleButtonBehavior.get_widgets('mygroup')
                 # do your job
@@ -333,8 +284,9 @@ class ToggleButtonBehavior(ButtonBehavior):
         .. warning::
 
             It's possible that some widgets that you have previously
-            deleted are still in the list. The garbage collector might need
-            to release other objects before flushing them.
+            deleted are still in the list. Garbage collector might need
+            more elements before flushing it. The return of this method
+            is informative, you've been warned!
         '''
         groups = ToggleButtonBehavior.__groups
         if groupname not in groups:
@@ -343,10 +295,8 @@ class ToggleButtonBehavior(ButtonBehavior):
 
 
 class DragBehavior(object):
-    '''This `mixin <https://en.wikipedia.org/wiki/Mixin>`_ class
-    provides Drag behavior. When combined with a widget,
-    dragging in the rectangle defined by :attr:`drag_rectangle` will drag the
-    widget.
+    '''Drag behavior. When combined with a widget, dragging in the rectangle
+    defined by :attr:`drag_rectangle` will drag the widget.
 
     For example, to make a popup which is draggable by its title do::
 
@@ -356,10 +306,7 @@ class DragBehavior(object):
         class DragPopup(DragBehavior, Popup):
             pass
 
-    And in .kv do:
-
-    .. code-block:: kv
-
+    And in .kv do::
         <DragPopup>:
             drag_rectangle: self.x, self.y+self._container.height, self.width,\
             self.height - self._container.height
@@ -372,53 +319,52 @@ class DragBehavior(object):
     drag_distance = NumericProperty(_scroll_distance)
     '''Distance to move before dragging the :class:`DragBehavior`, in pixels.
     As soon as the distance has been traveled, the :class:`DragBehavior` will
-    start to drag, and no touch event will be dispatched to the children.
+    start to drag, and no touch event will go to children.
     It is advisable that you base this value on the dpi of your target device's
     screen.
 
-    :attr:`drag_distance` is a :class:`~kivy.properties.NumericProperty` and
-    defaults to the `scroll_distance` as defined in the user
-    :class:`~kivy.config.Config` (20 pixels by default).
+    :attr:`drag_distance` is a :class:`~kivy.properties.NumericProperty`,
+    defaults to 20 (pixels), according to the default value of scroll_distance
+    in user configuration.
     '''
 
     drag_timeout = NumericProperty(_scroll_timeout)
     '''Timeout allowed to trigger the :attr:`drag_distance`, in milliseconds.
     If the user has not moved :attr:`drag_distance` within the timeout,
-    dragging will be disabled, and the touch event will be dispatched to the
-    children.
+    dragging will be disabled, and the touch event will go to the children.
 
-    :attr:`drag_timeout` is a :class:`~kivy.properties.NumericProperty` and
+    :attr:`drag_timeout` is a :class:`~kivy.properties.NumericProperty`,
     defaults to 55 (milliseconds), according to the default value of
-    `scroll_timeout` in user :class:`~kivy.config.Config`.
+    scroll_timeout in user configuration.
     '''
 
     drag_rect_x = NumericProperty(0)
     '''X position of the axis aligned bounding rectangle where dragging
-    is allowed (in window coordinates).
+    is allowed. In window coordinates.
 
-    :attr:`drag_rect_x` is a :class:`~kivy.properties.NumericProperty` and
+    :attr:`drag_rect_x` is a :class:`~kivy.properties.NumericProperty`,
     defaults to 0.
     '''
 
     drag_rect_y = NumericProperty(0)
     '''Y position of the axis aligned bounding rectangle where dragging
-    is allowed (in window coordinates).
+    is allowed. In window coordinates.
 
-    :attr:`drag_rect_Y` is a :class:`~kivy.properties.NumericProperty` and
+    :attr:`drag_rect_Y` is a :class:`~kivy.properties.NumericProperty`,
     defaults to 0.
     '''
 
     drag_rect_width = NumericProperty(100)
     '''Width of the axis aligned bounding rectangle where dragging is allowed.
 
-    :attr:`drag_rect_width` is a :class:`~kivy.properties.NumericProperty` and
+    :attr:`drag_rect_width` is a :class:`~kivy.properties.NumericProperty`,
     defaults to 100.
     '''
 
     drag_rect_height = NumericProperty(100)
     '''Height of the axis aligned bounding rectangle where dragging is allowed.
 
-    :attr:`drag_rect_height` is a :class:`~kivy.properties.NumericProperty` and
+    :attr:`drag_rect_height` is a :class:`~kivy.properties.NumericProperty`,
     defaults to 100.
     '''
 
@@ -529,8 +475,7 @@ class DragBehavior(object):
 
 
 class FocusBehavior(object):
-    '''This `mixin <https://en.wikipedia.org/wiki/Mixin>`_ class provides
-    keyboard focus behavior. When combined with other
+    '''Implements keyboard focus behavior. When combined with other
     FocusBehavior widgets it allows one to cycle focus among them by pressing
     tab. In addition, upon gaining focus the instance will automatically
     receive keyboard input.
@@ -826,12 +771,10 @@ class FocusBehavior(object):
         super(FocusBehavior, self).__init__(**kwargs)
 
         self._keyboard_mode = _keyboard_mode
-        fbind = self.fbind
-        fbind('focus', self._on_focus)
-        fbind('disabled', self._on_focusable)
-        fbind('is_focusable', self._on_focusable)
-        fbind('focus_next', self._set_on_focus_next)
-        fbind('focus_previous', self._set_on_focus_previous)
+        self.bind(focus=self._on_focus, disabled=self._on_focusable,
+                  is_focusable=self._on_focusable,
+                  focus_next=self._set_on_focus_next,
+                  focus_previous=self._set_on_focus_previous)
 
     def _on_focusable(self, instance, value):
         if self.disabled or not self.is_focusable:
@@ -1006,8 +949,7 @@ class FocusBehavior(object):
 
 
 class CompoundSelectionBehavior(object):
-    '''The Selection behavior `mixin <https://en.wikipedia.org/wiki/Mixin>`_
-    implements the logic behind keyboard and touch
+    '''Selection behavior implements the logic behind keyboard and touch
     selection of selectable widgets managed by the derived widget.
     For example, it could be combined with a
     :class:`~kivy.uix.gridlayout.GridLayout` to add selection to the layout.
@@ -1166,14 +1108,10 @@ class CompoundSelectionBehavior(object):
         def ensure_single_select(*l):
             if (not self.multiselect) and len(self.selected_nodes) > 1:
                 self.clear_selection()
-        update_counts = self._update_counts
-        update_counts()
-        fbind = self.fbind
-        fbind('multiselect', ensure_single_select)
-        fbind('page_count', update_counts)
-        fbind('up_count', update_counts)
-        fbind('right_count', update_counts)
-        fbind('scroll_count', update_counts)
+        self._update_counts()
+        self.bind(multiselect=ensure_single_select,
+        page_count=self._update_counts, up_count=self._update_counts,
+        right_count=self._update_counts, scroll_count=self._update_counts)
 
     def select_with_touch(self, node, touch=None):
         '''(internal) Processes a touch on the node. This should be called by
@@ -1249,7 +1187,7 @@ class CompoundSelectionBehavior(object):
 
         if scancode[1] == 'shift':
             self._shift_down = True
-        elif scancode[1] in ('ctrl', 'lctrl', 'rctrl'):
+        elif scancode[1] == 'ctrl':
             self._ctrl_down = True
         elif (multi and 'ctrl' in modifiers and scancode[1] in ('a', 'A')
               and scancode[1] not in keys):
@@ -1295,7 +1233,7 @@ class CompoundSelectionBehavior(object):
         '''
         if scancode[1] == 'shift':
             self._shift_down = False
-        elif scancode[1] in ('ctrl', 'lctrl', 'rctrl'):
+        elif scancode[1] == 'ctrl':
             self._ctrl_down = False
         else:
             try:

@@ -147,8 +147,6 @@ cdef class Line(VertexInstruction):
             self.circle = kwargs['circle']
         if 'rectangle' in kwargs:
             self.rectangle = kwargs['rectangle']
-        if 'rounded_rectangle' in kwargs:
-            self.rounded_rectangle = kwargs['rounded_rectangle']
         if 'bezier' in kwargs:
             self.bezier = kwargs['bezier']
 
@@ -176,10 +174,10 @@ cdef class Line(VertexInstruction):
             self._stencil_use = StencilUse(op='lequal')
             self._stencil_unuse = StencilUnUse()
 
-    cdef int apply(self) except -1:
+    cdef void apply(self):
         if self._width == 1.:
             VertexInstruction.apply(self)
-            return 0
+            return
 
         cdef double alpha = getActiveContext()['color'][-1]
         self._use_stencil = alpha < 1
@@ -197,7 +195,6 @@ cdef class Line(VertexInstruction):
             self._stencil_pop.apply()
         else:
             VertexInstruction.apply(self)
-        return 0
 
     cdef void build_legacy(self):
         cdef int i
@@ -1241,9 +1238,9 @@ cdef class SmoothLine(Line):
 
         self.build_smooth()
 
-    cdef int apply(self) except -1:
+    cdef void apply(self):
         VertexInstruction.apply(self)
-        return 0
+        return
 
     cdef void build_smooth(self):
         cdef:

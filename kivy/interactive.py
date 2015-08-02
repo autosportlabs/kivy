@@ -156,8 +156,6 @@ Any use cases besides compacting code?
 
 __all__ = ('SafeMembrane', 'InteractiveLauncher')
 
-import inspect
-
 from kivy.app import App
 from kivy.base import EventLoop
 from kivy.clock import Clock
@@ -205,7 +203,7 @@ class SafeMembrane(object):
         self.safe.set()
 
     def isMethod(self, fn):
-        return inspect.ismethod(fn)
+        return type(fn) is type(self.isMethod)
 
     # Everything from this point on is just a series of thread-safing proxy
     # methods that make calls against _ref and threadsafe whenever data will be

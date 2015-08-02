@@ -1,74 +1,45 @@
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+
+#include <GL/gl.h>
+#include <GL/glx.h>
+#include <GL/glxext.h>
 #include <X11/Xatom.h>
 #include <X11/extensions/Xrender.h>
 #include <X11/Xutil.h>
 #include <X11/XKBlib.h>
-#include "../../../kivy/graphics/config.h"
 
-#if __USE_EGL == 0
-	#include <GL/gl.h>
-	#include <GL/glx.h>
-	#include <GL/glxext.h>
-#else
-	#include <EGL/egl.h>
-#endif
-
-static int Xscreen;
-static Atom del_atom;
-static Display *Xdisplay;
-static Visual *visual_x11;
-static Window Xroot, window_handle;
-static int g_width, g_height;
-
-#if __USE_EGL == 0
-	static GLXContext render_context;
-	static GLXFBConfig *fbconfigs, fbconfig;
-	static int numfbconfigs;
-	static GLXWindow glX_window_handle;
-	/* visual data config GLX */
-	static int VisData[] = {
-		GLX_RENDER_TYPE, GLX_RGBA_BIT,
-		GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
-		GLX_DOUBLEBUFFER, True,
-		GLX_RED_SIZE, 8,
-		GLX_GREEN_SIZE, 8,
-		GLX_BLUE_SIZE, 8,
-		GLX_ALPHA_SIZE, 8,
-		GLX_DEPTH_SIZE, 16,
-		None
-	};
-#else
-	/* NEW: add support egl */
-	static EGLDisplay eglDisplay;
-	static EGLConfig eglconfig; 
-	static EGLSurface eglsurface;
-	static EGLContext eglcontext;
-	static EGLint egl_config_attribs[] = {
-		EGL_BUFFER_SIZE,        32,
-		EGL_RED_SIZE,            8,
-		EGL_GREEN_SIZE,          8,
-		EGL_BLUE_SIZE,           8,
-		EGL_ALPHA_SIZE,          8,
-
-		EGL_DEPTH_SIZE,         EGL_DONT_CARE,
-		EGL_STENCIL_SIZE,       EGL_DONT_CARE,
-
-		EGL_RENDERABLE_TYPE,    EGL_OPENGL_ES2_BIT,
-		EGL_SURFACE_TYPE,       EGL_WINDOW_BIT | EGL_PIXMAP_BIT,
-		EGL_NONE,
-	};
-
-	static const EGLint ctx_attribs[] = {
-	EGL_CONTEXT_CLIENT_VERSION, 2,
-	EGL_NONE
-	};
-#endif
 
 typedef int (*event_cb_t)(XEvent *event);
 event_cb_t g_event_callback = NULL;
+
+static int Xscreen;
+static Atom del_atom;
+static Colormap cmap;
+static Display *Xdisplay;
+static XVisualInfo *visual;
+static XRenderPictFormat *pict_format;
+static GLXFBConfig *fbconfigs, fbconfig;
+static int numfbconfigs;
+static GLXContext render_context;
+static Window Xroot, window_handle;
+static GLXWindow glX_window_handle;
+static int g_width, g_height;
+
+static int VisData[] = {
+	GLX_RENDER_TYPE, GLX_RGBA_BIT,
+	GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
+	GLX_DOUBLEBUFFER, True,
+	GLX_RED_SIZE, 8,
+	GLX_GREEN_SIZE, 8,
+	GLX_BLUE_SIZE, 8,
+	GLX_ALPHA_SIZE, 8,
+	GLX_DEPTH_SIZE, 16,
+	None
+};
 
 typedef struct WMHints {
     unsigned long   flags;
@@ -89,33 +60,29 @@ static Bool WaitForMapNotify(Display *d, XEvent *e, char *arg)
 	return d && e && arg && (e->type == MapNotify) && (e->xmap.window == *(Window*)arg);
 }
 
-#if __USE_EGL == 0
+static void describe_fbconfig(GLXFBConfig fbconfig)
+{
+	int doublebuffer;
+	int red_bits, green_bits, blue_bits, alpha_bits, depth_bits;
 
-	static void describe_fbconfig(GLXFBConfig fbconfig)
-	{
-		int doublebuffer;
-		int red_bits, green_bits, blue_bits, alpha_bits, depth_bits;
+	glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_DOUBLEBUFFER, &doublebuffer);
+	glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_RED_SIZE, &red_bits);
+	glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_GREEN_SIZE, &green_bits);
+	glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_BLUE_SIZE, &blue_bits);
+	glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_ALPHA_SIZE, &alpha_bits);
+	glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_DEPTH_SIZE, &depth_bits);
 
-		glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_DOUBLEBUFFER, &doublebuffer);
-		glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_RED_SIZE, &red_bits);
-		glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_GREEN_SIZE, &green_bits);
-		glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_BLUE_SIZE, &blue_bits);
-		glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_ALPHA_SIZE, &alpha_bits);
-		glXGetFBConfigAttrib(Xdisplay, fbconfig, GLX_DEPTH_SIZE, &depth_bits);
-
-		fprintf(stderr, "FBConfig selected:\n"
-				"Doublebuffer: %s\n"
-				"Red Bits: %d, Green Bits: %d, Blue Bits: %d, Alpha Bits: %d, Depth Bits: %d\n",
-				doublebuffer == True ? "Yes" : "No",
-				red_bits, green_bits, blue_bits, alpha_bits, depth_bits);
-	}
-#endif
+	fprintf(stderr, "FBConfig selected:\n"
+			"Doublebuffer: %s\n"
+			"Red Bits: %d, Green Bits: %d, Blue Bits: %d, Alpha Bits: %d, Depth Bits: %d\n",
+			doublebuffer == True ? "Yes" : "No",
+			red_bits, green_bits, blue_bits, alpha_bits, depth_bits);
+}
 
 static void createTheWindow(int width, int height, int x, int y, int resizable, int fullscreen, int border, int above, int CWOR, char *title)
 {
 	XEvent event;
 	int attr_mask;
-	int depth;
 	XSizeHints hints;
 	XWMHints *startup_state;
 	XTextProperty textprop;
@@ -125,50 +92,37 @@ static void createTheWindow(int width, int height, int x, int y, int resizable, 
 	if (!Xdisplay) {
 		fatalError("Couldn't connect to X server\n");
 	}
-	
 	Xscreen = DefaultScreen(Xdisplay);
 	Xroot = RootWindow(Xdisplay, Xscreen);
-        
-	#if __USE_EGL == 0
-		Colormap cmap;
-		XRenderPictFormat *pict_format;
-		XVisualInfo *visual;
-		fbconfigs = glXChooseFBConfig(Xdisplay, Xscreen, VisData, &numfbconfigs);
-		fbconfig = 0;
-		int i;
-		for(i = 0; i<numfbconfigs; i++) {
-			visual = (XVisualInfo*) glXGetVisualFromFBConfig(Xdisplay, fbconfigs[i]);
-			if(!visual)
-				continue;
 
-			pict_format = XRenderFindVisualFormat(Xdisplay, visual->visual);
-			if(!pict_format)
-				continue;
+	fbconfigs = glXChooseFBConfig(Xdisplay, Xscreen, VisData, &numfbconfigs);
+	fbconfig = 0;
+	int i;
+	for(i = 0; i<numfbconfigs; i++) {
+		visual = (XVisualInfo*) glXGetVisualFromFBConfig(Xdisplay, fbconfigs[i]);
+		if(!visual)
+			continue;
 
-			fbconfig = fbconfigs[i];
-			if(pict_format->direct.alphaMask > 0) {
-				break;
-			}
+		pict_format = XRenderFindVisualFormat(Xdisplay, visual->visual);
+		if(!pict_format)
+			continue;
+
+		fbconfig = fbconfigs[i];
+		if(pict_format->direct.alphaMask > 0) {
+			break;
 		}
+	}
 
-		if(!fbconfig) {
-			fatalError("No matching FB config found");
-		}
+	if(!fbconfig) {
+		fatalError("No matching FB config found");
+	}
 
-		describe_fbconfig(fbconfig);
+	describe_fbconfig(fbconfig);
 
-		// Create a colormap - only needed on some X clients, eg. IRIX
-		cmap = XCreateColormap(Xdisplay, Xroot, visual->visual, AllocNone);
+	/* Create a colormap - only needed on some X clients, eg. IRIX */
+	cmap = XCreateColormap(Xdisplay, Xroot, visual->visual, AllocNone);
 
-		attr.colormap = cmap;
-		depth = visual->depth;
-		visual_x11 = visual->visual;
-	#else
-		depth = CopyFromParent;
-		visual_x11 = CopyFromParent;
-		attr.colormap = None;
-	#endif
-		
+	attr.colormap = cmap;
 	attr.background_pixmap = None;
 	attr.border_pixmap = None;
 	attr.border_pixel = 0;
@@ -198,16 +152,18 @@ static void createTheWindow(int width, int height, int x, int y, int resizable, 
 
 	if ( fullscreen ) {
         // If the fullscreen is set, we take the size of the screen
-		width = disp_width;
-		height = disp_height;
+		if ( width == -1 ) {
+			width = disp_width;
+			height = disp_height;
+		}
 		border = 0;
 	}else{
-		// Check if the user did go fullscreen (set width & height to the size of the screen)
-		// even he didn't set the fullscreen arg.
-		if ( (width == disp_width) & (height == disp_height) ){
-			fullscreen = True;
-		}
-	}
+        // Check if the user did go fullscreen (set width & height to the size of the screen)
+        // even he didn't set the fullscreen arg.
+        if ( (width == disp_width) & (height == disp_height) ){
+            fullscreen = True;
+        }
+    }
 
 	if ( CWOR ){
         // As soon attr_mask is set to CWOverrideRedirect, the WM (windowmanager) won't be able to controll
@@ -221,9 +177,9 @@ static void createTheWindow(int width, int height, int x, int y, int resizable, 
 			Xroot,
 			x, y, width, height,
 			0,
-			depth,
+			visual->depth,
 			InputOutput,
-			visual_x11,
+			visual->visual,
 			attr_mask, &attr);
 
 	g_width = width;
@@ -232,19 +188,17 @@ static void createTheWindow(int width, int height, int x, int y, int resizable, 
 	if( !window_handle ) {
 		fatalError("Couldn't create the window\n");
 	}
-	
-	#if __USE_EGL == 0
-		#if USE_GLX_CREATE_WINDOW
-			int glXattr[] = { None };
-			glX_window_handle = glXCreateWindow(Xdisplay, fbconfig, window_handle, glXattr);
-			if( !glX_window_handle ) {
-				fatalError("Couldn't create the GLX window\n");
-			}
-		#else
-			glX_window_handle = window_handle;
-		#endif
-	#endif
-			
+
+#if USE_GLX_CREATE_WINDOW
+	int glXattr[] = { None };
+	glX_window_handle = glXCreateWindow(Xdisplay, fbconfig, window_handle, glXattr);
+	if( !glX_window_handle ) {
+		fatalError("Couldn't create the GLX window\n");
+	}
+#else
+	glX_window_handle = window_handle;
+#endif
+
 	textprop.value = (unsigned char*)title;
 	textprop.encoding = XA_STRING;
 	textprop.format = 8;
@@ -260,7 +214,11 @@ static void createTheWindow(int width, int height, int x, int y, int resizable, 
 	startup_state->initial_state = NormalState;
 	startup_state->flags = StateHint;
 
-	XSetWMProperties(Xdisplay, window_handle,&textprop, &textprop, NULL, 0, &hints, startup_state, NULL);
+	XSetWMProperties(Xdisplay, window_handle,&textprop, &textprop,
+			NULL, 0,
+			&hints,
+			startup_state,
+			NULL);
 
     XEvent xev;
     if ( above ){
@@ -317,63 +275,28 @@ static void createTheWindow(int width, int height, int x, int y, int resizable, 
 	am_wm_pid = XInternAtom(Xdisplay, "_NET_WM_PID", False);
 	XChangeProperty(Xdisplay, window_handle, am_wm_pid, XA_CARDINAL,
                     32, PropModeReplace, (unsigned char *)&pid, 1);
-		    
-	
-	#if __USE_EGL == 1
-		//egl provides an interface to connect the graphics related functionality of openGL ES
-		//with the windowing interface and functionality of the native operation system (X11)
-		eglDisplay = eglGetDisplay(Xdisplay);
-		
-		if (eglDisplay == EGL_NO_DISPLAY) {
-			fatalError("Can't create egl display\n");
-		}
 
-		EGLint major, minor;
-		if (!eglInitialize(eglDisplay, &major, &minor)) {
-			fatalError("Can't initialize egl\n");
-		}
-
-		eglBindAPI(EGL_OPENGL_ES_API);
-		
-		EGLint num_configs;
-		eglChooseConfig(eglDisplay, egl_config_attribs, &eglconfig, 1, &num_configs);
-		
-		eglsurface = eglCreateWindowSurface(eglDisplay,eglconfig,window_handle,NULL);
-		
-		if (eglsurface == EGL_NO_SURFACE) {
-			fatalError("Couldn't create the surface\n");
-		}
-		
-		// connect the context to the surface
-		eglcontext = eglCreateContext(eglDisplay, eglconfig, EGL_NO_CONTEXT, ctx_attribs);
-		
-		// associate the egl-context with the egl-surface
-		eglMakeCurrent(eglDisplay, eglsurface, eglsurface, eglcontext);
-		
-		// print egl information
-		printf("WinX11 EGL vendor: %s\n", eglQueryString(eglDisplay, EGL_VENDOR));
-		printf("WinX11 EGL version: %s\n", eglQueryString(eglDisplay, EGL_VERSION));
-	#endif
 }
 
-#if __USE_EGL == 0
-	static void createTheRenderContext(void) {
-		int dummy;
-		if (!glXQueryExtension(Xdisplay, &dummy, &dummy)) {
-			fatalError("OpenGL not supported by X server\n");
-		}
+static void createTheRenderContext(void)
+{
+	int dummy;
+	if (!glXQueryExtension(Xdisplay, &dummy, &dummy)) {
+		fatalError("OpenGL not supported by X server\n");
+	}
 
+	{
 		render_context = glXCreateNewContext(Xdisplay, fbconfig, GLX_RGBA_TYPE, 0, True);
 		if (!render_context) {
 			fatalError("Failed to create a GL context\n");
 		}
-		
-		if (!glXMakeContextCurrent(Xdisplay, glX_window_handle, glX_window_handle, render_context)) {
-			fatalError("glXMakeCurrent failed for window\n");
-		}
 	}
-#endif
-	
+
+	if (!glXMakeContextCurrent(Xdisplay, glX_window_handle, glX_window_handle, render_context)) {
+		fatalError("glXMakeCurrent failed for window\n");
+	}
+}
+
 static int updateTheMessageQueue(void)
 {
 	XEvent event;
@@ -424,18 +347,12 @@ int x11_create_window(int width, int height, int x, int y,
 		int resizable, int fullscreen, int border, int above, int CWOR,
 		char *title) {
 	createTheWindow(width, height, x, y, resizable, fullscreen, border, above, CWOR, title);
-	#if __USE_EGL == 0
-		createTheRenderContext();
-	#endif
+	createTheRenderContext();
 	return 1;
 }
 
 void x11_gl_swap(void) {
-	#if __USE_EGL == 0
-		glXSwapBuffers(Xdisplay, glX_window_handle);
-	#else
-		eglSwapBuffers(eglDisplay, eglsurface);
-	#endif
+	glXSwapBuffers(Xdisplay, glX_window_handle);
 }
 
 int x11_get_width(void) {

@@ -253,10 +253,8 @@ class RelativeLayout(FloatLayout):
 
     def __init__(self, **kw):
         super(RelativeLayout, self).__init__(**kw)
-        funbind = self.funbind
-        trigger = self._trigger_layout
-        funbind('pos', trigger)
-        funbind('pos_hint', trigger)
+        self.unbind(pos=self._trigger_layout,
+                    pos_hint=self._trigger_layout)
 
     def do_layout(self, *args):
         super(RelativeLayout, self).do_layout(pos=(0, 0))
@@ -267,9 +265,9 @@ class RelativeLayout(FloatLayout):
     def to_local(self, x, y, **k):
         return (x - self.x, y - self.y)
 
-    def _apply_transform(self, m, pos=None):
+    def _apply_transform(self, m):
         m.translate(self.x, self.y, 0)
-        return super(RelativeLayout, self)._apply_transform(m, (0, 0))
+        return super(RelativeLayout, self)._apply_transform(m)
 
     def on_touch_down(self, touch):
         x, y = touch.x, touch.y
